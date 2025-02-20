@@ -172,100 +172,140 @@ async function convertFiles() {
 async function convertWordToPDF(wordFile) {
     try {
         showLoadingMessage('正在转换文件，请稍候...');
+
+        // 读取 Word 文件
+        const arrayBuffer = await wordFile.arrayBuffer();
         
-        // 设置超时检查
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('转换超时，请检查文件是否正确')), 5000);
-        });
+        // 配置 mammoth 选项
+        const options = {
+            styleMap: [
+                "p[style-name='Heading 1'] => h1:fresh",
+                "p[style-name='Heading 2'] => h2:fresh",
+                "p[style-name='Heading 3'] => h3:fresh",
+                "p[style-name='Title'] => h1.title:fresh",
+                "p[style-name='Subtitle'] => h2.subtitle:fresh",
+                "r[style-name='Strong'] => strong",
+                "r[style-name='Emphasis'] => em"
+            ],
+            includeDefaultStyleMap: true,
+            convertImage: mammoth.images.imgElement(function(image) {
+                return image.read("base64").then(function(imageBuffer) {
+                    return {
+                        src: "data:" + image.contentType + ";base64," + imageBuffer
+                    };
+                });
+            })
+        };
 
-        // 检查文件类型
-        if (!wordFile.name.endsWith('.docx')) {
-            throw new Error('目前仅支持 .docx 格式的 Word 文件');
-        }
+        // 转换为 HTML
+        const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer }, options);
+        
+        // 创建容器
+        const container = document.createElement('div');
+        container.className = 'word-container';
+        
+        // 添加样式和内容
+        container.innerHTML = `
+            <style>
+                .word-container {
+                    width: 210mm;
+                    padding: 20mm;
+                    background: white;
+                    font-family: 'Times New Roman', serif;
+                    font-size: 12pt;
+                    line-height: 1.5;
+                    color: #000;
+                }
+                .word-container h1 {
+                    font-size: 24pt;
+                    margin: 24pt 0 12pt;
+                }
+                .word-container h2 {
+                    font-size: 18pt;
+                    margin: 18pt 0 9pt;
+                }
+                .word-container h3 {
+                    font-size: 14pt;
+                    margin: 14pt 0 7pt;
+                }
+                .word-container p {
+                    margin: 12pt 0;
+                    text-align: justify;
+                }
+                .word-container table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 12pt 0;
+                }
+                .word-container th,
+                .word-container td {
+                    border: 1px solid #000;
+                    padding: 8pt;
+                }
+                .word-container img {
+                    max-width: 100%;
+                    height: auto;
+                    margin: 12pt 0;
+                }
+                .word-container ul,
+                .word-container ol {
+                    margin: 12pt 0;
+                    padding-left: 24pt;
+                }
+                .word-container li {
+                    margin: 6pt 0;
+                }
+                .word-container blockquote {
+                    margin: 12pt 24pt;
+                    padding-left: 12pt;
+                    border-left: 3pt solid #000;
+                    font-style: italic;
+                }
+                @page {
+                    margin: 0;
+                }
+            </style>
+            ${result.value}
+        `;
 
-        // 转换过程
-        const conversionPromise = (async () => {
-            // 读取 Word 文件
-            const arrayBuffer = await wordFile.arrayBuffer();
-            
-            // 转换为 HTML
-            const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
-            
-            // 创建临时 div
-            const tempDiv = document.createElement('div');
-            tempDiv.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 210mm;
-                min-height: 297mm;
-                padding: 20mm;
-                margin: 0;
-                background: white;
-                font-family: Arial, sans-serif;
-                line-height: 1.5;
-                z-index: -9999;
-            `;
-            
-            // 添加内容和样式
-            tempDiv.innerHTML = `
-                <style>
-                    * { box-sizing: border-box; }
-                    body { margin: 0; padding: 0; }
-                    p { margin: 0 0 10px 0; }
-                    img { max-width: 100%; height: auto; }
-                </style>
-                ${result.value}
-            `;
-            
-            document.body.appendChild(tempDiv);
+        document.body.appendChild(container);
 
-            // 等待内容渲染
-            await new Promise(resolve => setTimeout(resolve, 100));
+        // 等待内容渲染
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-            // 使用 html2canvas 和 jsPDF
-            const canvas = await html2canvas(tempDiv, {
+        // 配置 PDF 选项
+        const opt = {
+            margin: 0,
+            filename: wordFile.name.replace('.docx', '.pdf'),
+            image: { type: 'jpeg', quality: 1 },
+            html2canvas: {
                 scale: 2,
                 useCORS: true,
                 allowTaint: true,
+                scrollX: 0,
                 scrollY: 0,
-                windowWidth: tempDiv.scrollWidth,
-                windowHeight: tempDiv.scrollHeight
-            });
+                letterRendering: true,
+                onclone: function(clonedDoc) {
+                    const container = clonedDoc.querySelector('.word-container');
+                    if (container) {
+                        container.style.transform = 'none';
+                    }
+                }
+            },
+            jsPDF: {
+                unit: 'pt',
+                format: 'a4',
+                orientation: 'portrait'
+            }
+        };
 
-            const imgData = canvas.toDataURL('image/jpeg', 1.0);
-            
-            // 从 window.jspdf 获取 jsPDF
-            const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
+        // 转换为 PDF
+        await html2pdf().from(container).set(opt).save();
 
-            const imgProps = pdf.getImageProperties(imgData);
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-            
-            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-
-            // 在保存PDF之前先移除加载提示
-            hideLoadingMessage();
-            
-            // 保存PDF
-            pdf.save(wordFile.name.replace('.docx', '.pdf'));
-
-            // 清理
-            document.body.removeChild(tempDiv);
-        })();
-
-        // 使用 Promise.race 来处理超时
-        await Promise.race([conversionPromise, timeoutPromise]);
+        // 清理
+        document.body.removeChild(container);
         
-        // 确保加载提示已经移除
         hideLoadingMessage();
-        
-        // 显示成功提示
         showSuccessMessage('转换完成！');
     } catch (error) {
         console.error('Word转PDF出错：', error);
@@ -319,6 +359,16 @@ async function convertMarkdownToHTML(mdFile) {
             throw new Error('marked 库未正确加载');
         }
 
+        // 配置 marked 使用 highlight.js
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+
         const text = await mdFile.text();
         console.log('Markdown 内容:', text.substring(0, 100) + '...');
         const html = marked.parse(text);
@@ -330,6 +380,7 @@ async function convertMarkdownToHTML(mdFile) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${mdFile.name.replace('.md', '')}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -344,17 +395,18 @@ async function convertMarkdownToHTML(mdFile) {
             padding: 16px;
             border-radius: 6px;
             overflow: auto;
+            margin: 1em 0;
         }
         code {
-            font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
             font-size: 85%;
-            background-color: rgba(27, 31, 35, 0.05);
             padding: 0.2em 0.4em;
             border-radius: 3px;
         }
         pre code {
-            background-color: transparent;
             padding: 0;
+            font-size: 100%;
+            background: transparent;
         }
         blockquote {
             margin: 0;
@@ -378,10 +430,21 @@ async function convertMarkdownToHTML(mdFile) {
         th {
             background-color: #f6f8fa;
         }
+        .hljs {
+            background: #f6f8fa !important;
+            padding: 0 !important;
+        }
     </style>
 </head>
 <body>
     ${html}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script>
+        // 初始化代码高亮
+        document.querySelectorAll('pre code').forEach((block) => {
+            hljs.highlightBlock(block);
+        });
+    </script>
 </body>
 </html>`;
 
@@ -406,120 +469,148 @@ async function convertMarkdownToHTML(mdFile) {
 // Markdown转PDF
 async function convertMarkdownToPDF(mdFile) {
     try {
-        // 动态加载 html2pdf
-        if (typeof html2pdf === 'undefined') {
-            await import('https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js');
-        }
-        
+        showLoadingMessage('正在转换文件，请稍候...');
+
         const text = await mdFile.text();
         
-        // 创建一个临时的div来渲染Markdown内容
-        const tempDiv = document.createElement('div');
-        tempDiv.style.position = 'absolute';
-        tempDiv.style.left = '-9999px';
-        tempDiv.style.width = '800px';  // 设置固定宽度以便于PDF转换
-        
-        // 添加基本样式
-        tempDiv.style.cssText = `
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            color: #24292e;
-            padding: 2rem;
-            background-color: #ffffff;
-        `;
-        
-        // 添加Markdown内容
-        const htmlContent = marked.parse(text, {
-            gfm: true,
-            breaks: true
+        // 配置 marked
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            },
+            breaks: true,
+            gfm: true
         });
-        
-        // 包装HTML内容，添加样式
-        tempDiv.innerHTML = `
-            <style>
-                h1, h2, h3, h4, h5, h6 {
-                    margin-top: 24px;
-                    margin-bottom: 16px;
-                    font-weight: 600;
-                    line-height: 1.25;
-                }
-                h1 { font-size: 2em; padding-bottom: .3em; border-bottom: 1px solid #eaecef; }
-                h2 { font-size: 1.5em; padding-bottom: .3em; border-bottom: 1px solid #eaecef; }
-                h3 { font-size: 1.25em; }
-                h4 { font-size: 1em; }
-                p, ul, ol { margin-bottom: 16px; }
-                code {
-                    padding: .2em .4em;
-                    margin: 0;
-                    font-size: 85%;
-                    background-color: rgba(27,31,35,.05);
-                    border-radius: 3px;
-                    font-family: "SFMono-Regular",Consolas,Monaco,monospace;
-                }
-                pre {
-                    padding: 16px;
-                    overflow: auto;
-                    font-size: 85%;
-                    line-height: 1.45;
-                    background-color: #f6f8fa;
-                    border-radius: 3px;
-                }
-                pre code {
-                    padding: 0;
-                    background-color: transparent;
-                }
-                blockquote {
-                    padding: 0 1em;
-                    color: #6a737d;
-                    border-left: .25em solid #dfe2e5;
-                    margin: 0 0 16px 0;
-                }
-                table {
-                    border-spacing: 0;
-                    border-collapse: collapse;
-                    margin: 16px 0;
-                    width: 100%;
-                }
-                table th, table td {
-                    padding: 6px 13px;
-                    border: 1px solid #dfe2e5;
-                }
-                img {
-                    max-width: 100%;
-                    box-sizing: border-box;
-                }
-            </style>
-            ${htmlContent}
-        `;
-        
-        document.body.appendChild(tempDiv);
 
-        // 使用html2pdf进行转换
+        // 转换为 HTML
+        const html = marked.parse(text);
+
+        // 创建临时容器
+        const container = document.createElement('div');
+        container.className = 'markdown-container';
+        container.innerHTML = html;
+        document.body.appendChild(container);
+
+        // 添加样式
+        const style = document.createElement('style');
+        style.textContent = `
+            .markdown-container {
+                width: 210mm;
+                padding: 20mm;
+                background: white;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+                color: #24292e;
+            }
+            .markdown-container h1,
+            .markdown-container h2,
+            .markdown-container h3,
+            .markdown-container h4,
+            .markdown-container h5,
+            .markdown-container h6 {
+                margin-top: 24px;
+                margin-bottom: 16px;
+                font-weight: 600;
+                line-height: 1.25;
+            }
+            .markdown-container h1 { font-size: 2em; }
+            .markdown-container h2 { font-size: 1.5em; }
+            .markdown-container h3 { font-size: 1.25em; }
+            .markdown-container p { margin: 1em 0; }
+            .markdown-container pre {
+                background-color: #f6f8fa;
+                padding: 16px;
+                border-radius: 6px;
+                overflow: auto;
+                margin: 1em 0;
+                font-size: 85%;
+            }
+            .markdown-container code {
+                font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+                font-size: 85%;
+                background-color: #f6f8fa;
+                padding: 0.2em 0.4em;
+                border-radius: 3px;
+            }
+            .markdown-container pre code {
+                padding: 0;
+                font-size: 100%;
+                background: transparent;
+            }
+            .markdown-container blockquote {
+                margin: 1em 0;
+                padding-left: 1em;
+                color: #6a737d;
+                border-left: 0.25em solid #dfe2e5;
+            }
+            .markdown-container ul,
+            .markdown-container ol {
+                margin: 1em 0;
+                padding-left: 2em;
+            }
+            .markdown-container table {
+                border-collapse: collapse;
+                width: 100%;
+                margin: 1em 0;
+            }
+            .markdown-container th,
+            .markdown-container td {
+                border: 1px solid #dfe2e5;
+                padding: 6px 13px;
+            }
+            .markdown-container th {
+                background-color: #f6f8fa;
+            }
+            .markdown-container img {
+                max-width: 100%;
+                height: auto;
+            }
+            .hljs {
+                background: #f6f8fa !important;
+                padding: 0 !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 等待样式应用和内容渲染
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 配置 PDF 选项
         const opt = {
-            margin: [10, 10],
-            filename: mdFile.name.replace(/\.(md|markdown)$/, '.pdf'),
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { 
+            margin: 0,
+            filename: mdFile.name.replace('.md', '.pdf'),
+            image: { type: 'jpeg', quality: 1 },
+            html2canvas: {
                 scale: 2,
                 useCORS: true,
-                logging: true
+                allowTaint: true,
+                scrollX: 0,
+                scrollY: 0
             },
-            jsPDF: { 
-                unit: 'mm', 
-                format: 'a4', 
+            jsPDF: {
+                unit: 'mm',
+                format: 'a4',
                 orientation: 'portrait'
             }
         };
 
-        await html2pdf().set(opt).from(tempDiv).save();
+        // 转换为 PDF
+        await html2pdf().from(container).set(opt).save();
+
+        // 清理
+        document.body.removeChild(container);
+        document.head.removeChild(style);
         
-        // 清理临时元素
-        document.body.removeChild(tempDiv);
-        
-        alert('转换完成！');
+        hideLoadingMessage();
+        showSuccessMessage('转换完成！');
     } catch (error) {
         console.error('Markdown转PDF出错：', error);
-        alert('转换过程中出现错误！');
+        hideLoadingMessage();
+        showErrorMessage(error.message || '转换过程中出现错误！');
     }
 }
 
