@@ -59,6 +59,7 @@ function updateOutputFormats() {
     } else if (inputType === 'md') {
         outputFormat.innerHTML = `
             <option value="pdf">PDF文件</option>
+            <option value="html">HTML文件</option>
         `;
         pngToPdfOptions.style.display = 'none';
     }
@@ -145,19 +146,25 @@ async function convertFiles() {
     const outputType = outputFormat.value;
     
     try {
-        if (inputType === 'pdf' && outputType === 'png') {
-            await convertPDFtoPNG(files[0]);
+        if (inputType === 'pdf') {
+            if (outputType === 'png') {
+                await convertPDFtoPNG(files[0]);
+            }
         } else if (inputType === 'png' && outputType === 'pdf') {
             await convertPNGtoPDF(files);
-        } else if (inputType === 'md' && outputType === 'pdf') {
-            await convertMarkdownToPDF(files[0]);
         } else if (inputType === 'docx' && outputType === 'pdf') {
             await convertWordToPDF(files[0]);
+        } else if (inputType === 'md') {
+            if (outputType === 'pdf') {
+                await convertMarkdownToPDF(files[0]);
+            } else if (outputType === 'html') {
+                await convertMarkdownToHTML(files[0]);
+            }
         }
         resetDropZone();
     } catch (error) {
         console.error('转换出错：', error);
-        alert('转换过程中出现错误！');
+        showErrorMessage('转换过程中出现错误！');
     }
 }
 
@@ -302,129 +309,97 @@ async function convertPDFtoPNG(pdfFile) {
     alert('转换完成！');
 }
 
-// Markdown转HTML
+// 添加回 Markdown 转 HTML 的功能
 async function convertMarkdownToHTML(mdFile) {
     try {
-        const text = await mdFile.text();
+        console.log('开始转换 Markdown 到 HTML:', mdFile);
+        showLoadingMessage('正在转换文件，请稍候...');
         
-        // 创建HTML内容
-        const htmlContent = `
+        if (typeof marked === 'undefined') {
+            throw new Error('marked 库未正确加载');
+        }
+
+        const text = await mdFile.text();
+        console.log('Markdown 内容:', text.substring(0, 100) + '...');
+        const html = marked.parse(text);
+        
+        const fullHtml = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${mdFile.name.replace(/\.(md|markdown)$/, '')}</title>
+    <title>${mdFile.name.replace('.md', '')}</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             line-height: 1.6;
-            color: #24292e;
             max-width: 800px;
             margin: 0 auto;
             padding: 2rem;
-            background-color: #ffffff;
-        }
-        h1, h2, h3, h4, h5, h6 {
-            margin-top: 24px;
-            margin-bottom: 16px;
-            font-weight: 600;
-            line-height: 1.25;
-        }
-        h1 { font-size: 2em; padding-bottom: .3em; border-bottom: 1px solid #eaecef; }
-        h2 { font-size: 1.5em; padding-bottom: .3em; border-bottom: 1px solid #eaecef; }
-        h3 { font-size: 1.25em; }
-        h4 { font-size: 1em; }
-        p, ul, ol { margin-bottom: 16px; }
-        code {
-            padding: .2em .4em;
-            margin: 0;
-            font-size: 85%;
-            background-color: rgba(27,31,35,.05);
-            border-radius: 3px;
-            font-family: "SFMono-Regular",Consolas,Monaco,"Liberation Mono","Courier New",monospace;
+            color: #24292e;
         }
         pre {
-            padding: 16px;
-            overflow: auto;
-            font-size: 85%;
-            line-height: 1.45;
             background-color: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow: auto;
+        }
+        code {
+            font-family: SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 85%;
+            background-color: rgba(27, 31, 35, 0.05);
+            padding: 0.2em 0.4em;
             border-radius: 3px;
         }
         pre code {
-            padding: 0;
             background-color: transparent;
+            padding: 0;
         }
         blockquote {
-            padding: 0 1em;
+            margin: 0;
+            padding-left: 1em;
             color: #6a737d;
-            border-left: .25em solid #dfe2e5;
-            margin: 0 0 16px 0;
-        }
-        table {
-            border-spacing: 0;
-            border-collapse: collapse;
-            margin: 16px 0;
-            width: 100%;
-        }
-        table th, table td {
-            padding: 6px 13px;
-            border: 1px solid #dfe2e5;
-        }
-        table tr:nth-child(2n) {
-            background-color: #f6f8fa;
+            border-left: 0.25em solid #dfe2e5;
         }
         img {
             max-width: 100%;
-            box-sizing: border-box;
+            height: auto;
         }
-        hr {
-            height: .25em;
-            padding: 0;
-            margin: 24px 0;
-            background-color: #e1e4e8;
-            border: 0;
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1em 0;
         }
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #0d1117;
-                color: #c9d1d9;
-            }
-            a { color: #58a6ff; }
-            code { background-color: rgba(240,246,252,0.15); }
-            pre { background-color: #161b22; }
-            blockquote { color: #8b949e; border-left-color: #30363d; }
-            table th, table td { border-color: #30363d; }
-            table tr:nth-child(2n) { background-color: #161b22; }
-            hr { background-color: #30363d; }
+        th, td {
+            border: 1px solid #dfe2e5;
+            padding: 6px 13px;
+        }
+        th {
+            background-color: #f6f8fa;
         }
     </style>
 </head>
 <body>
-    ${marked.parse(text, {
-        gfm: true,
-        breaks: true,
-        highlight: function(code, lang) {
-            return code;
-        }
-    })}
+    ${html}
 </body>
 </html>`;
 
-        // 创建并下载HTML文件
-        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const downloadLink = document.createElement('a');
         downloadLink.href = url;
-        downloadLink.download = mdFile.name.replace(/\.(md|markdown)$/, '.html');
+        downloadLink.download = mdFile.name.replace('.md', '.html');
+        
+        hideLoadingMessage();
         downloadLink.click();
         URL.revokeObjectURL(url);
         
-        alert('转换完成！');
+        showSuccessMessage('转换完成！');
     } catch (error) {
         console.error('Markdown转HTML出错：', error);
-        alert('转换过程中出现错误！');
+        hideLoadingMessage();
+        showErrorMessage('转换过程中出现错误！');
     }
 }
 
