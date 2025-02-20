@@ -38,6 +38,7 @@
                             <option value="pdf">PDF文件</option>
                             <option value="png">PNG图片</option>
                             <option value="md">Markdown文件</option>
+                            <option value="docx">Word文件(.docx)</option>
                         </select>
                     </div>
                     <div class="drop-zone" id="inputDropZone">
@@ -64,7 +65,13 @@
                         <select id="outputFormat">
                             <option value="png">PNG图片</option>
                             <option value="pdf">PDF文件</option>
-                            <option value="html">HTML文件</option>
+                        </select>
+                    </div>
+                    <div id="pngToPdfOptions" style="display: none;">
+                        <label>PDF页面设置：</label>
+                        <select id="pdfPageFormat">
+                            <option value="a4">A4标准大小</option>
+                            <option value="auto">适应图片大小</option>
                         </select>
                     </div>
                     <div class="output-preview">
@@ -109,6 +116,10 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html> 
+
