@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sloaner文件格式转换工具</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="background-decoration">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+        <div class="circle circle-3"></div>
+    </div>
+
+    <header>
+        <div class="logo">
+            <div class="logo-text">
+                <h1>Sloaner文件格式转换工具</h1>
+                <p class="subtitle">简单 · 快速 · 安全</p>
+            </div>
+            <div class="logo-icon">
+                <i class="fas fa-file-pdf"></i>
+                <i class="fas fa-exchange-alt"></i>
+                <i class="fas fa-images"></i>
+            </div>
+        </div>
+    </header>
+    
+    <main>
+        <div class="container">
+            <div class="conversion-panel">
+                <div class="input-section">
+                    <h2><i class="fas fa-file-import"></i> 输入文件</h2>
+                    <div class="format-selector">
+                        <select id="inputFormat">
+                            <option value="pdf">PDF文件</option>
+                            <option value="png">PNG图片</option>
+                            <option value="md">Markdown文件</option>
+                        </select>
+                    </div>
+                    <div class="drop-zone" id="inputDropZone">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>拖放文件到这里或点击选择文件</p>
+                        <div class="file-info" style="display: none;">
+                            <i class="fas fa-file"></i>
+                            <span class="file-name"></span>
+                        </div>
+                        <input type="file" id="fileInput" hidden>
+                    </div>
+                </div>
+
+                <div class="convert-section">
+                    <button id="convertBtn" class="convert-btn" disabled>
+                        <i class="fas fa-arrow-right"></i>
+                        <span>转换</span>
+                    </button>
+                </div>
+
+                <div class="output-section">
+                    <h2><i class="fas fa-file-export"></i> 输出格式</h2>
+                    <div class="format-selector">
+                        <select id="outputFormat">
+                            <option value="png">PNG图片</option>
+                            <option value="pdf">PDF文件</option>
+                            <option value="html">HTML文件</option>
+                        </select>
+                    </div>
+                    <div class="output-preview">
+                        <i class="fas fa-file-export"></i>
+                        <p>转换后的文件将自动下载</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features">
+                <div class="feature-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <h3>安全可靠</h3>
+                    <p>所有转换在本地完成，无需上传服务器</p>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-bolt"></i>
+                    <h3>快速转换</h3>
+                    <p>采用最新技术，转换速度快</p>
+                </div>
+                <div class="feature-item">
+                    <i class="fas fa-magic"></i>
+                    <h3>简单易用</h3>
+                    <p>拖放文件即可完成转换</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <p>© 2025 Sloaner文件格式转换工具</p>
+            <div class="footer-links">
+                <a href="https://github.com/xinxi2024"><i class="fab fa-github"></i></a>
+                <a href="https://github.com/xinxi2024"><i class="fas fa-envelope"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html> 
